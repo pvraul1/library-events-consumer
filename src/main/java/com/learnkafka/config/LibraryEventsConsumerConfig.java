@@ -30,6 +30,7 @@ import org.springframework.util.backoff.FixedBackOff;
  */
 @Configuration
 @RequiredArgsConstructor
+@Slf4j
 public class LibraryEventsConsumerConfig {
 
     private final KafkaProperties properties;
@@ -37,7 +38,13 @@ public class LibraryEventsConsumerConfig {
     public DefaultErrorHandler errorHandler() {
         var fixedBackOff = new FixedBackOff(1000L, 2);
 
-        return new DefaultErrorHandler(fixedBackOff);
+        var errorHandler = new DefaultErrorHandler(fixedBackOff);
+
+        errorHandler.setRetryListeners((record, ex, deliveryAttempt) -> {
+            log.info("Failed Record in Retry Listener, Exception: {}, deliveryAttempt: {}", ex.getMessage(), deliveryAttempt);
+        });
+
+        return errorHandler;
     }
 
     @Bean
