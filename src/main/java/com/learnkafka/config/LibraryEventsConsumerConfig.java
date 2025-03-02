@@ -41,7 +41,14 @@ public class LibraryEventsConsumerConfig {
         var exceptionToIgnoreList = List.of(IllegalArgumentException.class);
         var exceptionToRetryList = List.of(RecoverableDataAccessException.class);
         var fixedBackOff = new FixedBackOff(1000L, 2);
-        var errorHandler = new DefaultErrorHandler(fixedBackOff);
+        var expBackOff  = new ExponentialBackOffWithMaxRetries(2);
+        expBackOff.setInitialInterval(1_000L);
+        expBackOff.setMultiplier(2.0);
+        expBackOff.setMaxInterval(2_000L);
+        var errorHandler = new DefaultErrorHandler(
+                // fixedBackOff
+                expBackOff
+        );
 
         exceptionToIgnoreList.forEach(errorHandler::addNotRetryableExceptions);
         exceptionToRetryList.forEach(errorHandler::addRetryableExceptions);
