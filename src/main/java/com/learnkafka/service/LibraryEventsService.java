@@ -4,9 +4,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learnkafka.entity.LibraryEvent;
 import com.learnkafka.jpa.LibraryEventsRepository;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.dao.RecoverableDataAccessException;
 import org.springframework.stereotype.Service;
 
 /**
@@ -32,7 +34,11 @@ public class LibraryEventsService {
         LibraryEvent libraryEvent = this.objectMapper.readValue(consumerRecord.value(), LibraryEvent.class);
         log.info("Library Event : {}", libraryEvent);
 
-        switch (libraryEvent.getLibraryEventType()) {
+        if (libraryEvent != null && libraryEvent.getLibraryEventId() != null && libraryEvent.getLibraryEventId() == 999) {
+            throw new RecoverableDataAccessException("Tempory Network Issue");
+        }
+
+        switch (Objects.requireNonNull(libraryEvent).getLibraryEventType()) {
             case NEW:
                 // save operation
                 save(libraryEvent);
