@@ -1,10 +1,11 @@
 package com.learnkafka.config;
 
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.kafka.ConcurrentKafkaListenerContainerFactoryConfigurer;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
@@ -16,11 +17,13 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.ContainerCustomizer;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
-import org.springframework.kafka.listener.ContainerProperties;
-import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.*;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 import org.springframework.util.backoff.FixedBackOff;
+
+import java.util.List;
+
 /**
  * LibraryEventsConsumerConfig
  * <p>
@@ -36,6 +39,29 @@ import org.springframework.util.backoff.FixedBackOff;
 public class LibraryEventsConsumerConfig {
 
     private final KafkaProperties properties;
+    private final KafkaTemplate kafkaTemplate;
+
+    @Value("${topics.retry}")
+    private String retryTopic;
+
+    @Value("${topics.dlt}")
+    private String deadLetterTopic;
+
+    public DeadLetterPublishingRecoverer publishingRecoverer() {
+
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
+                (r, e) -> {
+                    log.error("Exception in publishingRecoverer : {} ", e.getMessage(), e);
+                    if (e.getCause() instanceof RecoverableDataAccessException) {
+                        return new TopicPartition(retryTopic, r.partition());
+                    } else {
+                        return new TopicPartition(deadLetterTopic, r.partition());
+                    }
+                }
+        );
+
+        return recoverer;
+    }
 
     public DefaultErrorHandler errorHandler() {
         var exceptionToIgnoreList = List.of(IllegalArgumentException.class);
@@ -46,6 +72,7 @@ public class LibraryEventsConsumerConfig {
         expBackOff.setMultiplier(2.0);
         expBackOff.setMaxInterval(2_000L);
         var errorHandler = new DefaultErrorHandler(
+                publishingRecoverer(),
                 // fixedBackOff
                 expBackOff
         );
