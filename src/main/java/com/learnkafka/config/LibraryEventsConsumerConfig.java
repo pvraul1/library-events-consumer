@@ -64,26 +64,30 @@ public class LibraryEventsConsumerConfig {
     }
 
     public DefaultErrorHandler errorHandler() {
-        var exceptionToIgnoreList = List.of(IllegalArgumentException.class);
-        var exceptionToRetryList = List.of(RecoverableDataAccessException.class);
-        var fixedBackOff = new FixedBackOff(1000L, 2);
-        var expBackOff  = new ExponentialBackOffWithMaxRetries(2);
+
+        var exceptiopnToIgnorelist = List.of(
+                IllegalArgumentException.class
+        );
+        var fixedBackOff = new FixedBackOff(1000L, 2L);
+
+        ExponentialBackOffWithMaxRetries expBackOff = new ExponentialBackOffWithMaxRetries(2);
         expBackOff.setInitialInterval(1_000L);
         expBackOff.setMultiplier(2.0);
         expBackOff.setMaxInterval(2_000L);
-        var errorHandler = new DefaultErrorHandler(
+
+        var defaultErrorHandler = new DefaultErrorHandler(
                 publishingRecoverer(),
-                // fixedBackOff
-                expBackOff
+                fixedBackOff
+                // expBackOff
         );
 
-        exceptionToIgnoreList.forEach(errorHandler::addNotRetryableExceptions);
-        exceptionToRetryList.forEach(errorHandler::addRetryableExceptions);
-        errorHandler.setRetryListeners((record, ex, deliveryAttempt) -> {
-            log.info("Failed Record in Retry Listener, Exception: {}, deliveryAttempt: {}", ex.getMessage(), deliveryAttempt);
-        });
+        exceptiopnToIgnorelist.forEach(defaultErrorHandler::addNotRetryableExceptions);
+        defaultErrorHandler.setRetryListeners(
+                (record, ex, deliveryAttempt) ->
+                        log.info("Failed Record in Retry Listener  exception : {} , deliveryAttempt : {} ", ex.getMessage(), deliveryAttempt)
+        );
 
-        return errorHandler;
+        return defaultErrorHandler;
     }
 
     @Bean
