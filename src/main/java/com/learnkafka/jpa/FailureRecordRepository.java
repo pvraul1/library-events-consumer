@@ -3,6 +3,8 @@ package com.learnkafka.jpa;
 import com.learnkafka.entity.FailureRecord;
 import org.springframework.data.repository.CrudRepository;
 
+import java.util.List;
+
 /**
  * Created by ij, Spring Framework Guru.
  *
@@ -11,4 +13,5 @@ import org.springframework.data.repository.CrudRepository;
  * @since jdk 1.21
  */
 public interface FailureRecordRepository extends CrudRepository<FailureRecord, Integer> {
+    List<FailureRecord> findAllByStatus(String status);
 }

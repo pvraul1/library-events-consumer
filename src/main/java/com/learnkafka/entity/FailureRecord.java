@@ -27,7 +27,7 @@ public class FailureRecord {
     private Integer id;
 
     private String topic;
-    private String key_value;
+    private Integer key_value;
     private String errorRecord;
     private Integer partition;
     private Long offset_value;

@@ -25,7 +25,7 @@ public class FailureService {
 
         var failureRecord = FailureRecord.builder()
                 .topic(record.topic())
-                .key_value(String.valueOf(record.key()))
+                .key_value(record.key())
                 .errorRecord(record.value())
                 .partition(record.partition())
                 .offset_value(record.offset())
