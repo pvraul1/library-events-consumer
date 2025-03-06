@@ -10,6 +10,7 @@ import com.learnkafka.consumer.LibraryEventsConsumer;
 import com.learnkafka.entity.Book;
 import com.learnkafka.entity.LibraryEvent;
 import com.learnkafka.entity.LibraryEventType;
+import com.learnkafka.jpa.FailureRecordRepository;
 import com.learnkafka.jpa.LibraryEventsRepository;
 import com.learnkafka.service.LibraryEventsService;
 import java.util.HashMap;
@@ -78,6 +79,9 @@ public class LibraryEventsConsumerIT {
 
     @Autowired
     ObjectMapper objectMapper;
+
+    @Autowired
+    FailureRecordRepository failureRecordRepository;
 
     private Consumer<Integer, String> consumer;
 
@@ -203,4 +207,25 @@ public class LibraryEventsConsumerIT {
         assertEquals(json, consumerRecord.value());
     }
 
+
+    @Test
+    void publishUpdateLibraryEvent_null_libraryEvent_failurerecord() throws JsonProcessingException, ExecutionException, InterruptedException {
+
+        String json = "{\"libraryEventId\":null,\"libraryEventType\":\"UPDATE\",\"book\":{\"bookId\":456,\"bookName\":\"Kafka using Spring Boot\",\"bookAuthor\":\"Dilip\"}}";
+        kafkaTemplate.sendDefault(json).get();
+
+        CountDownLatch latch = new CountDownLatch(1);
+        latch.await(5, TimeUnit.SECONDS);
+
+        verify(libraryEventsConsumerSpy, times(1)).onMessage(isA(ConsumerRecord.class));
+        verify(libraryEventsServiceSpy, times(1)).processLibraryEvent(isA(ConsumerRecord.class));
+
+        var count = failureRecordRepository.count();
+        assertEquals(1, count);
+
+        failureRecordRepository.findAll()
+                .forEach(failureRecord -> {
+                    System.out.println("failureRecord: " + failureRecord);
+                });
+    }
 }

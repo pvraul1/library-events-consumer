@@ -1,7 +1,9 @@
 package com.learnkafka.config;
 
+import com.learnkafka.service.FailureService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,8 +40,17 @@ import java.util.List;
 @Slf4j
 public class LibraryEventsConsumerConfig {
 
-    private final KafkaProperties properties;
-    private final KafkaTemplate kafkaTemplate;
+    public static final String RETRY = "RETRY";
+    public static final String DEAD = "DEAD";
+
+    @Autowired
+    private KafkaProperties properties;
+
+    @Autowired
+    private KafkaTemplate kafkaTemplate;
+
+    @Autowired
+    private FailureService failureService;
 
     @Value("${topics.retry}")
     private String retryTopic;
@@ -63,6 +74,18 @@ public class LibraryEventsConsumerConfig {
         return recoverer;
     }
 
+    ConsumerRecordRecoverer consumerRecordRecoverer = (consumerRecord, exception) -> {
+        log.error("Exception is : {} Failed Record : {} ", exception, consumerRecord);
+        var record = (ConsumerRecord<Integer, String>) consumerRecord;
+        if (exception.getCause() instanceof RecoverableDataAccessException) {
+            log.info("Inside the recoverable logic");
+            failureService.saveFailedRecord(record, exception, RETRY);
+        } else {
+            log.info("Inside the non recoverable logic");
+            failureService.saveFailedRecord(record, exception, DEAD);
+        }
+    };
+
     public DefaultErrorHandler errorHandler() {
 
         var exceptiopnToIgnorelist = List.of(
@@ -76,7 +99,8 @@ public class LibraryEventsConsumerConfig {
         expBackOff.setMaxInterval(2_000L);
 
         var defaultErrorHandler = new DefaultErrorHandler(
-                publishingRecoverer(),
+                //publishingRecoverer(),
+                consumerRecordRecoverer,
                 fixedBackOff
                 // expBackOff
         );
